@@ -1,0 +1,13 @@
+# Datasets, generated manifests/tokenizers, and training outputs
+data/
+runs/
+*.pt
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# macOS
+.DS_Store
