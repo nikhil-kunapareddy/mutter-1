@@ -1,10 +1,10 @@
 """Train the Conformer-CTC model.
 
-    uv run python -m mutter.train                       # full run (stops after --max-hours 8)
+    uv run python -m mutter.train                       # full run (stops after --max-hours 6)
     uv run python -m mutter.train                       # same command again = resume
     uv run python -m mutter.train --overfit-steps 300   # pipeline check: memorize one batch
 
-Every field in config.py is a flag: `--d-model 256`, `--max-hours 6`, `--no-resume`, ...
+Every field in config.py is a flag: `--d-model 256`, `--max-hours 8`, `--no-resume`, ...
 Outputs in --run-dir: last.pt (resume point), best.pt (lowest dev WER), tokenizer.model,
 metrics.jsonl (one line per epoch), train.log.
 """

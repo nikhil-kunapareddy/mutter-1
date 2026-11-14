@@ -16,8 +16,8 @@ uv run python -m mutter.prepare           # manifests + 256-piece tokenizer (~1 
 # 2-minute pipeline check: the model should memorize one batch (loss -> ~0, hyp == ref)
 uv run python -m mutter.train --overfit-steps 300 --max-batch-seconds 60 --run-dir runs/overfit
 
-scripts/train_overnight.sh                # train; stops by itself after 8 hours
-scripts/train_overnight.sh                # run again on the next night to resume
+scripts/train_overnight.sh                # train one 6-hour batch; stops by itself
+scripts/train_overnight.sh                # run again for the next batch (resumes)
 
 uv run python -m mutter.evaluate runs/conformer-s/best.pt          # WER on test-clean/test-other
 uv run python -m mutter.transcribe runs/conformer-s/best.pt me.m4a # your own recording
@@ -60,15 +60,15 @@ Why 8x subsampling with word-pieces: one output every 80 ms is too coarse for si
 - `last.pt` — resume point (saved after every epoch); `best.pt` — lowest dev WER so far
 - `tokenizer.model` — copy of the tokenizer, so the run directory is self-contained
 
-Training stops at whichever comes first: `--epochs` (100) or `--max-hours` (8). The learning
+Training stops at whichever comes first: `--epochs` (100) or `--max-hours` (6). The learning
 rate schedule (warmup, then 1/sqrt decay) doesn't depend on run length, so stopping and
-resuming over several nights behaves like one long run. Ctrl+C is safe: the interrupted epoch
+resuming over several batches behaves like one long run. Ctrl+C is safe: the interrupted epoch
 restarts on resume.
 
 ## Speed (measured, M2 Pro 16 GB)
 
 - Training: ~380x realtime on train-clean-100 -> ~16 min/epoch + ~1 min dev eval
-- One 8-hour night ≈ 28 epochs (1,555 steps each)
+- One 6-hour batch ≈ 21 epochs (1,555 steps each); all 100 epochs ≈ 5 batches (~28 h)
 - Data prep: download ~20 min at 8 MB/s, `mutter.prepare` ~10 s
 
 ## Expected results
@@ -77,5 +77,5 @@ Rough, from published results for similar small CTC models; greedy decoding, no 
 
 | Training | Dev/test-clean WER | test-other WER |
 |---|---|---|
-| One night (~28 epochs) | ~12–15% | ~30% |
-| 2–3 nights (~60–80 epochs) | ~10% | ~25% |
+| ~28 epochs (~8 h, 1–2 batches) | ~12–15% | ~30% |
+| ~60–80 epochs (~17–23 h, 3–4 batches) | ~10% | ~25% |
