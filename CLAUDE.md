@@ -26,6 +26,7 @@ uv run python -m mutter.train --run-dir runs/x --max-steps 3000 --dev-limit 300 
 
 uv run python -m mutter.evaluate runs/conformer-s/best.pt                 # test-clean/test-other WER
 uv run python -m mutter.transcribe runs/conformer-s/best.pt clip.m4a      # needs ffmpeg for non-16k audio
+uv run python -m mutter.live runs/conformer-s/best.pt                    # live mic; --file x.wav replays a file
 ```
 
 There is no test suite. The overfit check plus short `--max-steps` runs are the tests.
@@ -43,6 +44,7 @@ There is no test suite. The overfit check plus short `--max-steps` runs are the 
 | `mutter/decode.py` | Greedy CTC decode, WER (jiwer), `load_model` |
 | `mutter/prepare.py` | Builds `data/manifests/*.jsonl` and `data/tokenizer/sp256.model` |
 | `mutter/evaluate.py`, `mutter/transcribe.py` | Test-set WER; transcribe arbitrary audio |
+| `mutter/live.py` | Live mic transcription via `sounddevice`. Not a streaming model, so it re-decodes the whole current utterance every 0.4 s (~150 ms on CPU for 20 s); energy-based VAD ends a line after 0.7 s quiet. Runs on CPU by default so it can share the machine with training. Needs macOS mic permission for the terminal app. |
 | `scripts/train_overnight.sh` | Warns if <40% RAM free, then `caffeinate -ims uv run python -m mutter.train "$@"` |
 
 `data/`, `runs/` and `*.pt` are gitignored.

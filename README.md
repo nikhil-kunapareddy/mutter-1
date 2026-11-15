@@ -23,6 +23,7 @@ scripts/train_overnight.sh                # run again for the next batch (resume
 
 uv run python -m mutter.evaluate runs/conformer-s/best.pt          # WER on test-clean/test-other
 uv run python -m mutter.transcribe runs/conformer-s/best.pt me.m4a # your own recording
+uv run python -m mutter.live runs/conformer-s/best.pt              # live, from your mic
 ```
 
 Before a long run: quit browsers and editors (the GPU shares the 16 GB; when it spills to swap,
@@ -60,6 +61,7 @@ Why 8x subsampling with word-pieces: one output every 80 ms is too coarse for si
 | `mutter/train.py` | Training loop, time budget, checkpoints, resume, overfit check |
 | `mutter/decode.py` | Greedy CTC decoding, WER, checkpoint loading |
 | `mutter/evaluate.py` / `transcribe.py` | Test-set WER / transcribe any audio file |
+| `mutter/live.py` | Live mic transcription (re-decodes the current sentence every 0.4 s) |
 
 ## Training outputs (`runs/conformer-s/`)
 
