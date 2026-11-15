@@ -17,6 +17,8 @@ uv run python -m mutter.prepare           # manifests + 256-piece tokenizer (~1 
 uv run python -m mutter.train --overfit-steps 300 --max-batch-seconds 60 --run-dir runs/overfit
 
 scripts/train_overnight.sh                # train one 6-hour batch; stops by itself
+                                          # health check: loss < 4.3 by step 1,000 and dev WER
+                                          # < 100% after epoch 1; stuck at ~4.7 = not learning
 scripts/train_overnight.sh                # run again for the next batch (resumes)
 
 uv run python -m mutter.evaluate runs/conformer-s/best.pt          # WER on test-clean/test-other
@@ -34,9 +36,16 @@ waveform 16 kHz
   -> SpecAugment (train only)  random frequency/time masks           features.py
   -> ConvSubsampling           3 stride-2 convs: 8x fewer frames     model.py
   -> 16 Conformer blocks       d=144, 4 heads, RoPE, conv kernel 31  model.py
+                               pre-norm, each block starts as identity
   -> linear head               256 word-pieces + blank, every 80 ms  model.py
   -> CTC loss / greedy decode  merge repeats, drop blanks            train.py, decode.py
 ```
+
+Why pre-norm with zero-started blocks: the original Conformer ends every block with a
+LayerNorm. With 16 blocks, ~16-utterance batches and a 2,500-step warmup that version never
+learned (loss stuck at ~4.7, the word-piece prior; it erased the audio instead). Removing the
+per-block norm and starting each block's output at zero makes a fresh model behave like a
+shallow one, which learns right away; the blocks phase in as they train.
 
 Why 8x subsampling with word-pieces: one output every 80 ms is too coarse for single letters
 (~15/s in read speech) but fine for word-pieces (~5/s), and it halves the encoder's work.

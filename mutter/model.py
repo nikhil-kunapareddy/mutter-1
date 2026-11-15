@@ -6,10 +6,17 @@ Data flow for one batch (B utterances, T frames of 10 ms):
     log-mel (B, T, 80)
       -> ConvSubsampling       (B, T/8, 144)   3 stride-2 convs: one vector per 80 ms
       -> 16 x ConformerBlock   (B, T/8, 144)   each block: FF/2 -> self-attention -> conv -> FF/2
-      -> Linear head           (B, T/8, 257)   a score for every word-piece + blank, per step
+      -> LayerNorm + Linear    (B, T/8, 257)   a score for every word-piece + blank, per step
 
 Self-attention gives every step a view of the whole utterance (global context); the depthwise
 conv adds a sharp local view (~2.5 s window). Position is encoded with rotary embeddings (RoPE).
+
+Pre-norm: every module normalizes its own input and adds its output to an untouched residual
+stream; one LayerNorm sits before the head. The original Conformer also puts a LayerNorm at the
+end of every block, but with 16 blocks, small batches and a short warmup that version never left
+the CTC plateau here (it learned to erase the audio and output the word-piece prior), while a
+2-block model left it within 1,000 steps. Without the per-block norm the audio has a direct path
+to the head.
 """
 import torch
 import torch.nn as nn
@@ -109,14 +116,18 @@ class ConformerBlock(nn.Module):
         self.attn_drop = nn.Dropout(cfg.dropout)
         self.conv = ConvModule(d, cfg.conv_kernel, cfg.dropout)
         self.ff2 = FeedForward(d, cfg.ff_mult, cfg.dropout)
-        self.out_norm = nn.LayerNorm(d)
+        # Every residual branch starts at exactly zero, so a fresh model is subsampling -> norm ->
+        # head: it learns like a shallow model, and each block phases in as its output layer
+        # grows. (Pre-norm alone was not enough for 16 blocks to leave the CTC plateau.)
+        for last in (self.ff1[4], self.attn.out, self.conv.pointwise_out, self.ff2[4]):
+            nn.init.zeros_(last.weight)
+            nn.init.zeros_(last.bias)
 
     def forward(self, x, mask, cos, sin):
         x = x + 0.5 * self.ff1(x)                           # "macaron" half-step feed-forwards
         x = x + self.attn_drop(self.attn(self.attn_norm(x), mask, cos, sin))
         x = x + self.conv(x, mask)
-        x = x + 0.5 * self.ff2(x)
-        return self.out_norm(x)
+        return x + 0.5 * self.ff2(x)                        # no block-end norm (see module doc)
 
 
 class ConformerCTC(nn.Module):
@@ -126,6 +137,7 @@ class ConformerCTC(nn.Module):
         self.subsample = ConvSubsampling(cfg.n_mels, cfg.d_model, cfg.subsample_layers)
         self.in_drop = nn.Dropout(cfg.dropout)
         self.blocks = nn.ModuleList(ConformerBlock(cfg) for _ in range(cfg.n_layers))
+        self.final_norm = nn.LayerNorm(cfg.d_model)
         self.head = nn.Linear(cfg.d_model, cfg.vocab_size)
 
     def forward(self, feats: torch.Tensor, lens: torch.Tensor):
@@ -137,7 +149,7 @@ class ConformerCTC(nn.Module):
         x = self.in_drop(x)
         for block in self.blocks:
             x = block(x, mask, cos, sin)
-        return self.head(x), lens
+        return self.head(self.final_norm(x)), lens
 
 
 def count_params(model: nn.Module) -> int:
