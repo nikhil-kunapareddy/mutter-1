@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Start (or resume) training with the Mac kept awake. Extra flags pass through to mutter.train:
-#   scripts/train_overnight.sh                  # 8 h budget, resumes runs/conformer-s if present
-#   scripts/train_overnight.sh --max-hours 6
+#   scripts/train_overnight.sh                  # 6 h batch, resumes runs/conformer-s if present
+#   scripts/train_overnight.sh --max-hours 8   # longer batch
 # Keep the lid open and the charger plugged in: macOS sleeps on lid close even with caffeinate.
 set -euo pipefail
 cd "$(dirname "$0")/.."

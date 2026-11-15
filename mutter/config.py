@@ -1,5 +1,5 @@
 """All hyperparameters in one place. Every field can be overridden from the command line,
-e.g. `--d-model 256` or `--max-hours 6` (see train.py)."""
+e.g. `--d-model 256` or `--max-hours 8` (see train.py)."""
 from dataclasses import dataclass
 
 
@@ -31,7 +31,7 @@ class TrainConfig:
 
     # Schedule. Training stops at whichever comes first: `epochs` or `max_hours`.
     epochs: int = 100
-    max_hours: float = 8.0
+    max_hours: float = 6.0
     max_steps: int = 0           # >0: stop after this many optimizer steps (smoke tests)
 
     # Optimizer: AdamW with linear warmup then inverse-sqrt decay ("Noam"). The decay does not
